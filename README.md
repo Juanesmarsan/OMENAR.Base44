@@ -32,6 +32,77 @@ Run the app: `npm run dev`
 
 Open [Base44.com](http://Base44.com) and click on Publish.
 
+---
+
+## 📚 Documentación del Proyecto
+
+Este proyecto ha sido completamente reorganizado y optimizado. Consulta:
+- **[STRUCTURE.md](STRUCTURE.md)** - Estructura del proyecto
+- **[AUDIT_REPORT.md](AUDIT_REPORT.md)** - Reporte de auditoría
+- **[SUMMARY.md](SUMMARY.md)** - Resumen ejecutivo
+
+## 🎯 Guía Rápida de Desarrollo
+
+### Custom Hooks (Reduce duplicación)
+```javascript
+import { useAuth, useData, useForm, useAPI } from '@/lib/hooks';
+
+// Autenticación
+const { user, logout, isAuthenticated } = useAuth();
+
+// Cargar datos con filtro
+const { filtered, setFilters, refetch } = useData(
+  fetchEmployees,
+  { search: (emp, term) => emp.name.includes(term) }
+);
+
+// Formularios
+const { values, errors, handleChange, handleSubmit } = useForm(
+  { name: '', email: '' },
+  onSubmit,
+  { email: Validators.email }
+);
+
+// Llamadas API
+const { data, isLoading } = useAPI('/api/employees');
+```
+
+### API Services (Centraliza lógicas de backend)
+```javascript
+import { EmployeeService, ProjectService, FinancialService } from '@/api/services';
+
+// Obtener empleados
+const employees = await EmployeeService.getAll();
+const emp = await EmployeeService.getById(id);
+const salaries = await EmployeeService.getSalaries(empId);
+
+// Proyectos
+const projects = await ProjectService.getAll();
+const certs = await ProjectService.getCertifications(projId);
+
+// Finanzas
+const expenses = await FinancialService.getFixedExpenses();
+const paymentsDue = await FinancialService.getPaymentsDue();
+```
+
+### Validadores (Consistencia en validación)
+```javascript
+import { Validators, FormValidators } from '@/lib/utils';
+
+// Validar campos individuales
+try {
+  Validators.email(value);
+  Validators.positiveNumber(amount);
+  Validators.required(name, 'Nombre');
+} catch (error) {
+  console.log(error.message);
+}
+
+// Usar en formularios
+const validators = FormValidators.employeeForm;
+const { errors } = useForm(initialValues, onSubmit, validators);
+```
+
 **Docs & Support**
 
 Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
