@@ -1,0 +1,200 @@
+import React from 'react';
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Calendar,
+  Building2,
+  FileText,
+  MoreVertical,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  Edit,
+  X,
+  Trash2
+} from "lucide-react";
+import { format, differenceInDays } from "date-fns";
+import { es } from "date-fns/locale";
+
+export default function PaymentDueCard({ payment, projectName, onEdit, onStatusChange, onDelete }) {
+  const getStatusBadge = (status) => {
+    const variants = {
+      pending: { class: "bg-yellow-100 text-yellow-800 border-yellow-200", icon: Clock },
+      paid: { class: "bg-green-100 text-green-800 border-green-200", icon: CheckCircle },
+      overdue: { class: "bg-red-100 text-red-800 border-red-200", icon: AlertTriangle },
+      cancelled: { class: "bg-gray-100 text-gray-800 border-gray-200", icon: X }
+    };
+
+    const labels = {
+      pending: "Pendiente",
+      paid: "Pagado", 
+      overdue: "Vencido",
+      cancelled: "Cancelado"
+    };
+
+    const variant = variants[status];
+    const Icon = variant.icon;
+
+    return (
+      <Badge className={`${variant.class} border flex items-center gap-1`}>
+        <Icon className="w-3 h-3" />
+        {labels[status]}
+      </Badge>
+    );
+  };
+
+  const getPriorityBadge = (priority) => {
+    const variants = {
+      urgent: "bg-red-500 text-white",
+      high: "bg-orange-500 text-white",
+      medium: "bg-blue-500 text-white", 
+      low: "bg-gray-500 text-white"
+    };
+
+    const labels = {
+      urgent: "Urgente",
+      high: "Alta",
+      medium: "Media",
+      low: "Baja"
+    };
+
+    return (
+      <Badge className={`${variants[priority]} text-xs`}>
+        {labels[priority]}
+      </Badge>
+    );
+  };
+
+  const getDaysUntilDue = () => {
+    const today = new Date();
+    const dueDate = new Date(payment.due_date);
+    return differenceInDays(dueDate, today);
+  };
+
+  const daysUntilDue = getDaysUntilDue();
+  const isOverdue = daysUntilDue < 0;
+  const isDueSoon = daysUntilDue <= 7 && daysUntilDue >= 0;
+
+  return (
+    <Card className={`shadow-md border-0 hover:shadow-lg transition-all duration-300 ${
+      isOverdue ? 'border-l-4 border-l-red-500' : 
+      isDueSoon ? 'border-l-4 border-l-orange-500 bg-orange-50' : ''
+    }`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                {getStatusBadge(payment.status)}
+                {getPriorityBadge(payment.priority)}
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">{payment.supplier}</h3>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-right">
+              <p className="text-2xl font-bold text-gray-900">
+                €{payment.total_amount.toLocaleString()}
+              </p>
+              {isOverdue && (
+                <p className="text-sm text-red-600 font-medium">
+                  Vencido hace {Math.abs(daysUntilDue)} días
+                </p>
+              )}
+              {isDueSoon && (
+                <p className="text-sm text-yellow-600 font-medium">
+                  Vence en {daysUntilDue} días
+                </p>
+              )}
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="ml-2">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEdit(payment)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Editar
+                </DropdownMenuItem>
+                {payment.status === 'pending' && (
+                  <DropdownMenuItem onClick={() => onStatusChange(payment, 'paid')}>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Marcar como Pagado
+                  </DropdownMenuItem>
+                )}
+                {payment.status !== 'cancelled' && (
+                  <DropdownMenuItem onClick={() => onStatusChange(payment, 'cancelled')}>
+                    <X className="w-4 h-4 mr-2" />
+                    Cancelar
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => onDelete(payment)} className="text-red-600">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Eliminar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+          <div>
+            <p className="text-gray-500 mb-1">Concepto</p>
+            <p className="font-medium">{payment.concept}</p>
+          </div>
+          
+          <div>
+            <p className="text-gray-500 mb-1">Proyecto</p>
+            <div className="flex items-center gap-1">
+              <Building2 className="w-4 h-4 text-gray-400" />
+              <span className="font-medium">{projectName}</span>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-gray-500 mb-1">Nº Factura</p>
+            <div className="flex items-center gap-1">
+              <FileText className="w-4 h-4 text-gray-400" />
+              <span className="font-medium">{payment.invoice_number || 'N/A'}</span>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-gray-500 mb-1">Vencimiento</p>
+            <div className="flex items-center gap-1">
+              <Calendar className="w-4 h-4 text-gray-400" />
+              <span className="font-medium">
+                {format(new Date(payment.due_date), "d 'de' MMM, yyyy", { locale: es })}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+          <div className="flex gap-4 text-sm text-gray-600">
+            <span>Base: €{payment.base_amount.toLocaleString()}</span>
+            <span>IVA ({payment.iva_rate}%): €{(payment.iva_amount || 0).toLocaleString()}</span>
+            <span>Forma: {payment.payment_method || 'N/A'}</span>
+          </div>
+          
+          {payment.notes && (
+            <p className="text-sm text-gray-500 italic max-w-md truncate">
+              {payment.notes}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

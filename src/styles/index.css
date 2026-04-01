@@ -1,0 +1,15 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+
+Deno.serve(async (req) => {
+    const base44 = createClientFromRequest(req);
+
+    const users = await base44.asServiceRole.entities.User.list();
+    const result = users.map(u => ({
+        id: u.id,
+        email: u.email,
+        full_name: u.full_name || u.email,
+        role: u.role
+    }));
+
+    return Response.json({ users: result });
+});

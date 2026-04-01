@@ -1,0 +1,368 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Calendar as CalendarIcon, X } from "lucide-react";
+
+export default function PaymentForm({ payment, projects, onSubmit, onCancel }) {
+  const [formData, setFormData] = useState({
+    bank_account: '',
+    payment_method: 'transfer',
+    supplier: '',
+    concept: '',
+    project_id: '',
+    invoice_number: '',
+    invoice_date: '',
+    due_date: '',
+    base_amount: 0,
+    iva_rate: 21,
+    iva_amount: 0,
+    total_amount: 0,
+    priority: 'medium',
+    notes: '',
+    ...payment,
+    include_iva: payment ? (payment.include_iva !== false && (payment.iva_rate === undefined || payment.iva_rate > 0)) : true,
+  });
+
+  useEffect(() => {
+    const base = formData.base_amount || 0;
+    if (formData.include_iva) {
+      const ivaAmount = (base * (formData.iva_rate || 0)) / 100;
+      setFormData(prev => ({
+        ...prev,
+        iva_amount: ivaAmount,
+        total_amount: base + ivaAmount
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        iva_rate: 0,
+        iva_amount: 0,
+        total_amount: base
+      }));
+    }
+  }, [formData.base_amount, formData.iva_rate, formData.include_iva]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const paymentMethods = [
+    { value: 'transfer', label: 'Transferencia' },
+    { value: 'check', label: 'Cheque' },
+    { value: 'confirming', label: 'Confirming' },
+    { value: 'advance_confirming', label: 'Adelanto Confirming' },
+    { value: 'direct_debit', label: 'Domiciliación' },
+    { value: 'cash', label: 'Efectivo' }
+  ];
+
+  const priorities = [
+    { value: 'low', label: 'Baja' },
+    { value: 'medium', label: 'Media' },
+    { value: 'high', label: 'Alta' },
+    { value: 'urgent', label: 'Urgente' }
+  ];
+
+  return (
+    <Card className="w-full shadow-2xl border-0">
+      <CardHeader className="border-b bg-white/80 backdrop-blur-sm">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-2xl">
+            {payment ? 'Editar Vencimiento de Pago' : 'Nuevo Vencimiento de Pago'}
+          </CardTitle>
+          <Button variant="ghost" size="icon" onClick={onCancel}>
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="p-8">
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Bank and Payment Method */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Banco/Cta Cargo *
+              </label>
+              <Input
+                required
+                value={formData.bank_account}
+                onChange={(e) => setFormData({...formData, bank_account: e.target.value})}
+                placeholder="Ej: CAIXABANK"
+                className="text-lg"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Forma de Pago *
+              </label>
+              <Select
+                value={formData.payment_method}
+                onValueChange={(value) => setFormData({...formData, payment_method: value})}
+              >
+                <SelectTrigger className="text-lg">
+                  <SelectValue placeholder="Seleccionar forma de pago" />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.map((method) => (
+                    <SelectItem key={method.value} value={method.value}>
+                      {method.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Supplier and Concept */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Proveedor *
+              </label>
+              <Input
+                required
+                value={formData.supplier}
+                onChange={(e) => setFormData({...formData, supplier: e.target.value})}
+                placeholder="Nombre del proveedor"
+                className="text-lg"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Concepto *
+              </label>
+              <Input
+                required
+                value={formData.concept}
+                onChange={(e) => setFormData({...formData, concept: e.target.value})}
+                placeholder="Descripción del concepto"
+                className="text-lg"
+              />
+            </div>
+          </div>
+
+          {/* Project and Invoice */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Proyecto
+              </label>
+              <Select
+                value={formData.project_id}
+                onValueChange={(value) => setFormData({...formData, project_id: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar proyecto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={null}>Sin proyecto</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name} ({project.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Número de Factura
+              </label>
+              <Input
+                value={formData.invoice_number}
+                onChange={(e) => setFormData({...formData, invoice_number: e.target.value})}
+                placeholder="Ej: FAC-2025-001"
+                className="text-lg"
+              />
+            </div>
+          </div>
+
+          {/* Dates */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fecha Factura
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.invoice_date 
+                      ? format(new Date(formData.invoice_date), 'dd/MM/yyyy')
+                      : 'Seleccionar fecha'
+                    }
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={formData.invoice_date ? new Date(formData.invoice_date) : undefined}
+                    onSelect={(date) => setFormData({
+                      ...formData, 
+                      invoice_date: date ? date.toISOString().split('T')[0] : ''
+                    })}
+                    locale={es}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fecha Vencimiento *
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.due_date 
+                      ? format(new Date(formData.due_date), 'dd/MM/yyyy')
+                      : 'Seleccionar fecha'
+                    }
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={formData.due_date ? new Date(formData.due_date) : undefined}
+                    onSelect={(date) => setFormData({
+                      ...formData, 
+                      due_date: date ? date.toISOString().split('T')[0] : ''
+                    })}
+                    locale={es}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {/* Financial Data */}
+          <div className="bg-gray-50 p-6 rounded-xl space-y-4">
+            {/* Checkbox IVA */}
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="include_iva"
+                checked={formData.include_iva !== false}
+                onChange={(e) => setFormData({...formData, include_iva: e.target.checked, iva_rate: e.target.checked ? 21 : 0})}
+                className="w-4 h-4 rounded"
+              />
+              <label htmlFor="include_iva" className="text-sm font-medium text-gray-700 cursor-pointer">
+                Incluir IVA en el cálculo
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Base Imponible (€) *
+                </label>
+                <Input
+                  type="number"
+                  required
+                  step="0.01"
+                  value={formData.base_amount}
+                  onChange={(e) => setFormData({...formData, base_amount: parseFloat(e.target.value) || 0})}
+                  placeholder="0.00"
+                  className="text-lg"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  IVA (%)
+                </label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.iva_rate}
+                  disabled={!formData.include_iva}
+                  onChange={(e) => setFormData({...formData, iva_rate: parseFloat(e.target.value) || 0})}
+                  className={`text-lg ${!formData.include_iva ? 'opacity-50' : ''}`}
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  IVA: €{(formData.iva_amount || 0).toFixed(2)}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Total (€)
+                </label>
+                <div className="text-2xl font-bold text-gray-900 bg-white p-3 rounded border">
+                  €{(formData.total_amount || 0).toFixed(2)}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {formData.include_iva ? `Base + ${formData.iva_rate}% IVA` : 'Sin IVA'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Priority and Notes */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Prioridad
+              </label>
+              <Select
+                value={formData.priority}
+                onValueChange={(value) => setFormData({...formData, priority: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar prioridad" />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorities.map((priority) => (
+                    <SelectItem key={priority.value} value={priority.value}>
+                      {priority.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Notas
+              </label>
+              <Textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                placeholder="Información adicional sobre el pago..."
+                className="h-20"
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-4 pt-6 border-t">
+            <Button type="button" variant="outline" onClick={onCancel} className="px-8">
+              Cancelar
+            </Button>
+            <Button type="submit" className="bg-blue-600 hover:bg-blue-700 px-8">
+              {payment ? 'Actualizar Vencimiento' : 'Crear Vencimiento'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
